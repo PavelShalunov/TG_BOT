@@ -1,0 +1,3 @@
+asyncpg
+asyncssh
+python-telegram-bot
