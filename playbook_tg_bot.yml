@@ -1,0 +1,165 @@
+- name: Install PostgreSQL on Ubuntu/Debian
+  hosts: db, db_repl
+  become: yes
+  gather_facts: no
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+    - name: Install PostgreSQL
+      apt:
+        name: 
+        - postgresql-{{ POSTGRE_VESION }}
+        - postgresql-contrib
+        state: present
+
+- name: Configure PostgreSQL
+  hosts: db
+  become: yes
+  gather_facts: no
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: Copy PostgreSQL configuration
+      copy:
+        src: ./postgresql.conf
+        dest: /etc/postgresql/{{ POSTGRE_VESION }}/main/postgresql.conf
+        owner: postgres
+        group: postgres
+
+    - name: Copy pg_hba.conf 
+      copy:
+        src: ./pg_hba.conf
+        dest: /etc/postgresql/{{ POSTGRE_VESION }}/main/pg_hba.conf
+        owner: postgres
+        group: postgres
+
+    - name: Config for ssh
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql/{{ POSTGRE_VESION }}/main/pg_hba.conf
+        line: "host all all {{ hostvars['bot']['ansible_host'] }}/32 password"
+
+    - name: Config for repl
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql/{{ POSTGRE_VESION }}/main/pg_hba.conf
+        line: "host replication {{ DB_REPL_USER }} {{ hostvars['db_repl']['ansible_host'] }}/24 scram-sha-256"
+
+    - name: restart postgresql
+      service:
+        name: postgresql
+        state: restarted   
+
+- name: Create PostgreSQL DB, User, and Tables
+  hosts: db
+  become: yes
+  vars_files:
+    - vars.yml
+  gather_facts: no
+  tasks:
+    - name: CREATE PostgreSQL user if not exists
+      become: yes
+      become_user: postgres
+      shell: |
+        psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='{{ DB_USER }}'" | grep -q 1 || psql -c "CREATE USER {{ DB_USER }} WITH PASSWORD '{{ DB_PASSWORD }}';"
+      args:
+        executable: /bin/bash
+
+    - name: Change PostgreSQL user password
+      become: yes
+      become_user: postgres
+      shell: psql -c "ALTER ROLE {{ DB_USER }} PASSWORD '{{ DB_PASSWORD }}';"       
+      
+    - name: Check if PostgreSQL database exists and create if not exists
+      become: yes
+      become_user: postgres
+      shell: |
+          psql -tAc "SELECT 1 FROM pg_database WHERE datname='{{ DB_DATABASE }}'" | grep -q 1 || psql -c "CREATE DATABASE {{ DB_DATABASE }};"
+      args:
+        executable: /bin/bash
+
+    - name: Ensure PostgreSQL replication user exists
+      become: yes
+      become_user: postgres
+      shell: |
+        psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='{{ DB_REPL_USER }}'" | grep -q 1 || psql -c "CREATE USER {{ DB_REPL_USER }} WITH REPLICATION ENCRYPTED PASSWORD '{{ DB_REPL_PASSWORD }}';"
+      args:
+        executable: /bin/bash
+
+    - name: Create PostgreSQL tables
+      become: yes
+      become_user: postgres
+      shell: psql -d {{ DB_DATABASE }} -c "CREATE TABLE IF NOT EXISTS numbers(id SERIAL PRIMARY KEY,phone_number VARCHAR(30));CREATE TABLE IF NOT EXISTS emails(id SERIAL PRIMARY KEY, email VARCHAR(255));"
+      
+
+- name: Init repl on repl host
+  hosts: db_repl
+  become: yes
+  vars_files:
+    - vars.yml
+  gather_facts: no
+  tasks:
+    - name: Ensure PostgreSQL service is stop
+      service:
+        name: postgresql
+        state: stopped
+    - name: Execute rm command
+      shell: rm -rf /var/lib/postgresql/{{ POSTGRE_VESION }}/main/*
+    - name: Config for repl
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql/{{ POSTGRE_VESION }}/main/postgresql.conf
+        line: "listen_addresses = '*'"
+    - name: pg_basebackup
+      command: pg_basebackup -h {{ hostvars['db']['ansible_host'] }} -D /var/lib/postgresql/{{ POSTGRE_VESION }}/main/ -U {{ DB_REPL_USER }} -vP -w
+      environment: 
+        PGPASSWORD: "{{ DB_REPL_PASSWORD }}"
+    - name: chown
+      shell: chown -R postgres:postgres /var/lib/postgresql/
+    - name: restart postgresql
+      service:
+        name: postgresql
+        state: restarted
+
+- name: 
+  hosts: bot
+  become: yes
+  vars_files:
+    - vars.yml
+  gather_facts: no
+  tasks:
+    - name: Ensure git and python is installed
+      package:
+        name: 
+          - git
+          - python3
+          - python3-pip
+        state: present
+    - name: git clone
+      git:
+        repo: https://github.com/PavelShalunov/TG_BOT.git
+        dest: "{{ DIR_FOR_REPO }}/bot"
+        version: main
+    - name: pip install
+      pip: 
+        requirements: "{{ DIR_FOR_REPO }}/bot/requirements.txt"
+    - name: Run bot
+      become: yes
+      shell: nohup python3 "{{ DIR_FOR_REPO }}/bot/main.py" > /dev/null 2>&1 &
+      environment:
+        TOKEN: "{{ TOKEN }}"
+        HOST: "{{ RM_HOST }}"
+        PORT: "{{ RM_PORT }}"
+        USER: "{{ RM_USER }}"
+        PASSWORD: "{{ RM_PASSWORD }}"
+        HOST_DB: "{{ hostvars['db']['ansible_host'] }}"
+        PORT_DB: "{{ DB_PORT }}"
+        USER_DB: "{{ DB_USER }}"
+        PASSWORD_DB: "{{ DB_PASSWORD }}"
+        DATABASE_DB: "{{ DB_DATABASE }}"
+    - name: Message
+      pause:
+        prompt: "Бот запущен. Нажмите enter для его остановки"
+    - name: Stop bot
+      command: "pkill -f main.py"
+      
