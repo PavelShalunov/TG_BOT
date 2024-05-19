@@ -1,39 +1,66 @@
 services:
-  db:
-    container_name: db
-    build: 
-      context: db
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    environment:
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    networks:
-      - compose-net
-  db_repl:
-    container_name: db_repl
-    build: 
-      context: db_repl
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-    environment:
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    networks:
-      - compose-net
-    depends_on:
-      - db
   bot:
-    container_name: bot
     build:
-      context: bot
+      context: ./bot
       dockerfile: Dockerfile
-    depends_on:
-      - db
-    networks:
-      - compose-net
-    env_file:
-      - .env
-networks:
-  compose-net:
-    driver: bridge
+    environment:
+      RM_HOST: ${RM_HOST}
+      RM_PORT: ${RM_PORT}
+      RM_USER: ${RM_USER}
+      RM_PASSWORD: ${RM_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_DATABASE: ${DB_DATABASE}
+      TOKEN: ${TOKEN}
+    image: bot_image
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+      args:
+        DB_REPL_USER: ${DB_REPL_USER}
+        DB_REPL_PASSWORD: ${DB_REPL_PASSWORD}
+        DB_DATABASE: ${DB_DATABASE}
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256\nhost replication all 0.0.0.0/0 md5"
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    command: |
+      postgres
+      -c logging_collector=on
+      -c log_line_prefix='%m [%p] %q%u@%d '
+      -c max_wal_senders=10
+      -c wal_level=replica
+      -c wal_log_hints=on
+      -c max_connections=100
+      -c log_replication_commands=on
+      -c hot_standby=on
+      -c hot_standby_feedback=on
+      -c max_replication_slots=10
+    image: db_image
+  db_repl:
+      build:
+        context: ./db_repl
+        dockerfile: Dockerfile
+      environment:
+        PGUSER: ${DB_USER}
+        POSTGRES_PASSWORD: ${DB_PASSWORD}
+        PGPASSWORD: ${DB_REPL_PASSWORD}
+      command: |
+        bash -c "
+        rm -rf /var/lib/postgresql/data/*
+        until pg_basebackup -h db -D /var/lib/postgresql/data -U ${DB_REPL_USER} -vP -w;
+        do
+        echo 'Waiting for primary to connect...'
+        sleep 1s
+        done
+        echo 'Backup done, starting replica...'
+        chown -R postgres:postgres /var/lib/postgresql/data
+        chmod 0700 /var/lib/postgresql/data
+        su - postgres -c '/usr/lib/postgresql/15/bin/postgres -D /var/lib/postgresql/data'
+        "
+      image: db_repl_image

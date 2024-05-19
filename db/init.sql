@@ -1,4 +1,7 @@
-CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD 'replicator_password' LOGIN;
+CREATE USER ${DB_REPL_USER} WITH REPLICATION ENCRYPTED PASSWORD '${DB_REPL_PASSWORD}';
+SELECT pg_create_physical_replication_slot('replication_slot');
+
+\c ${DB_DATABASE};
 
 CREATE TABLE IF NOT EXISTS emails (
     id SERIAL PRIMARY KEY,
@@ -7,16 +10,13 @@ CREATE TABLE IF NOT EXISTS emails (
 
 CREATE TABLE IF NOT EXISTS numbers (
     id SERIAL PRIMARY KEY,
-    number VARCHAR(20) NOT NULL
+    phone_number VARCHAR(20) NOT NULL
 );
 
-select setting from pg_settings where name like '%hba%';
-CREATE TABLE hba ( lines text );
-COPY hba FROM '/var/lib/postgresql/data/pg_hba.conf';
-select * from hba where lines !~ '^#' and lines !~ '^$';
-INSERT INTO hba (lines) VALUES ('host replication all 0.0.0.0/0 md5');
-select * from hba where lines !~ '^#' and lines !~ '^$';
-COPY hba TO '/var/lib/postgresql/data/pg_hba.conf';
-SELECT pg_reload_conf();
+INSERT INTO emails (email) VALUES
+    ('userone@mail.ru'),
+    ('employee@gmail.com');
 
-SELECT * FROM pg_create_physical_replication_slot('replication_slot');
+INSERT INTO numbers (phone_number) VALUES
+    ('89876543210'),
+    ('87777777777');

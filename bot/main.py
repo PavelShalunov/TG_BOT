@@ -184,7 +184,7 @@ async def save_numbers(update: Update, context):
     try:
         for number in numbers:
             await conn.execute(
-                'INSERT INTO numbers(number) VALUES ($1)', ''.join(number)
+                'INSERT INTO numbers(phone_number) VALUES ($1)', ''.join(number)
             )
         await conn.close()
     except Exception:
@@ -300,10 +300,19 @@ async def get_services(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_repl_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
-        result = await conn.run('tail -n 100 /var/log/postgresql/postgresql-15-main.log', check=True)
-        for chunk in split_text(result.stdout):
-            await update.message.reply_text(chunk)
+    conn = await asyncpg.connect(user=DB_USER, password=DB_PASSWORD,
+                                 database=DB_DATABASE, host=DB_HOST, port=DB_PORT)
+    values = await conn.fetch(
+        'SELECT pg_read_file(pg_current_logfile());'
+    )
+    await conn.close()
+    result = []
+    for line in values[0]['pg_read_file'].split('\n'):
+        if 'checkpoint' in line.lower() or 'repl' in line.lower():
+            result.append(line)
+    for chunk in split_text('\n'.join(result)):
+        logging.warning(chunk)
+        await update.message.reply_text(chunk)
 
 
 async def get_emails(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -329,7 +338,7 @@ async def get_phone_numbers(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await conn.close()
     res = ''
     for val in values:
-        res += f'{val["id"]}: {val["number"]}'
+        res += f'{val["id"]}: {val["phone_number"]}'
         res += '\n'
     await update.message.reply_text(res)
 
