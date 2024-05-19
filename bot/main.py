@@ -198,7 +198,7 @@ async def save_numbers(update: Update, context):
 async def verify_password(update: Update, context):
     user_input = update.message.text  # Получаем текст, содержащий(или нет) номера телефонов
 
-    pwd_re = r"^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+    pwd_re = r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()]).{8,}$'
 
     if re.fullmatch(pwd_re, user_input):
         await update.message.reply_text('Пароль сложный')
@@ -209,69 +209,69 @@ async def verify_password(update: Update, context):
 
 async def get_release(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.info(f'{update.effective_user.username} call /get_release command')
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('cat /etc/os-release', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_uname(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('uname -a', check=True)
         logging.info(f'stdout from uname -a: {result.stdout}')
         await update.message.reply_text(result.stdout)
 
 
 async def get_uptime(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('uptime', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_df(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('df -h', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_free(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('free -h', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_mpstat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('mpstat', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_w(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('w', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_auths(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('last -n 10', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_critical(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('journalctl -p crit -n 5', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_ps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('ps aux', check=True)
         for chunk in split_text(result.stdout):
             await update.message.reply_text(chunk)
 
 
 async def get_ss(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('netstat -tulnp', check=True)
         await update.message.reply_text(result.stdout)
 
@@ -287,20 +287,20 @@ async def get_apt_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_input != '1':
         cmd += f' | grep {user_input}'
 
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run(cmd, check=True)
         for chunk in split_text(result.stdout):
             await update.message.reply_text(chunk)
 
 
 async def get_services(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('systemctl --type=service --state=running', check=True)
         await update.message.reply_text(result.stdout)
 
 
 async def get_repl_logs(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD) as conn:
+    async with asyncssh.connect(host=HOST, port=PORT, username=USERNAME, password=PASSWORD, options=asyncssh.SSHClientConnectionOptions(known_hosts=None)) as conn:
         result = await conn.run('tail -n 100 /var/log/postgresql/postgresql-15-main.log', check=True)
         for chunk in split_text(result.stdout):
             await update.message.reply_text(chunk)
